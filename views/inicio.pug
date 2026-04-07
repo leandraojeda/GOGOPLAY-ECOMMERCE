@@ -1,0 +1,22 @@
+//- views/inicio.pug
+extends ..layout
+
+block content
+  .container
+    h1.text-center.mb-4= title
+    
+    .row.row-cols-1.row-cols-md-3.row-cols-lg-4.g-4
+      each product in products
+        .col
+          .card.h-100
+            if product.thumbnail
+              img.card-img-top(src=product.thumbnail alt=product.name)
+            .card-body
+              h5.card-title= product.name
+              p.card-text= product.description
+              p.card-text.text-primary.fw-bold $#{product.price}
+              if product.stock > 0
+                p.card-text.text-success Stock disponible
+              else
+                p.card-text.text-danger Sin stock
+              a.btn.btn-primary(href=`/product/${product.id}`) Ver detalles

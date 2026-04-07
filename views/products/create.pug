@@ -1,0 +1,81 @@
+extends ../layout 
+
+block content
+  .container.mt-4
+    h1.mb-4 Crear Producto
+
+    if errors && errors.length > 0
+      .alert.alert-danger
+        each error in errors
+          p.mb-0= error
+
+    form(action="/products" method="POST" enctype="multipart/form-data")
+      .row
+        .col-md-6
+          .mb-3
+            label.form-label(for="code") Código
+            input#code.form-control(type="text" name="code" value=product.code required)
+          
+          .mb-3
+            label.form-label(for="name") Nombre
+            input#name.form-control(type="text" name="name" value=product.name required)
+          
+          .mb-3
+            label.form-label(for="price") Precio
+            input#price.form-control(type="number" name="price" step="0.01" value=product.price required)
+          
+          .mb-3
+            label.form-label(for="stock") Stock
+            input#stock.form-control(type="number" name="stock" value=product.stock required)
+          
+          .mb-3
+            label.form-label(for="description") Descripción
+            textarea#description.form-control(name="description" rows="3")= product.description
+          
+          .mb-3
+            label.form-label(for="categoryId") Categoría
+            if categories && categories.length > 0
+              select#categoryId.form-control(name="categoryId" required)
+                option(value="") Seleccione una categoría
+                each category in categories
+                  if category
+                    option(
+                      value=category.id
+                      selected=category.id == product.categoryId
+                    )= category.name
+            else
+              .alert.alert-warning
+                i.fas.fa-exclamation-triangle.me-2
+                | No hay categorías disponiblesaaaaa. 
+                a(href="/categories/create") Crear una categoría
+
+        .col-md-6
+          .mb-3
+            label.form-label(for="thumbnail") Imagen Principal
+            input#thumbnail.form-control(type="file" name="thumbnail")
+          
+          .mb-3
+            label.form-label(for="image1") Imagen Adicional 1
+            input#image1.form-control(type="file" name="image1")
+          
+          .mb-3
+            label.form-label(for="image2") Imagen Adicional 2
+            input#image2.form-control(type="file" name="image2")
+      
+      .d-flex.gap-2.mt-4
+        button.btn.btn-primary(type="submit") Guardar Producto
+        a.btn.btn-secondary(href="/products") Cancelar
+
+  //- Script movido dentro del bloque content
+  script.
+    document.addEventListener('DOMContentLoaded', function() {
+      // Validación del formulario
+      const form = document.querySelector('form');
+      form.addEventListener('submit', function(e) {
+        const categoryId = document.getElementById('categoryId');
+        if (categoryId && !categoryId.value) {
+          e.preventDefault();
+          alert('Por favor seleccione una categoría');
+        }
+      });
+    });

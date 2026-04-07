@@ -1,0 +1,179 @@
+//- views/checkout.pug
+extends layout
+
+block content
+    .container
+        h1.mb-4 Finalizar Compra
+        .row
+            .col-md-8
+                .card.mb-4
+                    .card-header
+                        h5.mb-0 Resumen del Pedido
+                    .card-body
+                        if items && items.length > 0
+                            table.table
+                                thead
+                                    tr
+                                        th Producto
+                                        th Cantidad
+                                        th Precio
+                                        th Total
+                                tbody
+                                    each item in items
+                                        tr
+                                            td
+                                                .d-flex.align-items-center
+                                                    if item.thumbnail
+                                                        img.me-3(src=item.thumbnail alt=item.name style="width: 50px; height: 50px; object-fit: cover;")
+                                                    span= item.name
+                                            td= item.quantity
+                                            td $#{item.price ? item.price.toFixed(2) : '0.00'}
+                                            td $#{item.totalPrice ? item.totalPrice.toFixed(2) : '0.00'}
+
+            .col-md-4
+                .card
+                    .card-header
+                        h5.mb-0 Información de Envío
+                    .card-body
+                        form#checkoutForm
+                            .mb-3
+                                label.form-label(for="name") Nombre completo
+                                //-input#name.form-control(type="text" required)
+                                input#name.form-control(
+                                    type="text" 
+                                    required
+                                    value=user.name || ''
+                                    readonly
+                                )
+                            .mb-3
+                                label.form-label(for="email") Email
+                                //-input#email.form-control(type="email" required)
+                                input#email.form-control(
+                                    type="email" 
+                                    required
+                                    value=user.email || ''
+                                    readonly
+                                )
+                            .mb-3
+                                label.form-label(for="phone") Teléfono
+                                input#phone.form-control(type="tel" required)
+                            .mb-3
+                                label.form-label(for="address") Dirección
+                                input#address.form-control(type="text" required)
+                            .mb-3
+                                label.form-label(for="city") Ciudad
+                                input#city.form-control(type="text" required)
+                            
+                    .card-footer
+                        .d-flex.justify-content-between.align-items-center
+                            span.h5.mb-0 Total:
+                            span.h5.mb-0 $#{total.toFixed(2)}
+                        button#processPaymentBtn.btn.btn-primary.w-100.mt-3(type="submit") 
+                            i.bi.bi-credit-card.me-2
+                            | Procesar Pago
+                        button#cancelBtn.btn.btn-danger(type="button")
+                                i.bi.bi-x-circle.me-2
+                                | Cancelar Compra
+
+block scripts
+    script.
+        //funcion para cancelar el pedido
+        document.getElementById('cancelBtn').addEventListener('click', async function() {
+            if (confirm('¿Está seguro que desea cancelar la compra? Se eliminará todo el contenido del carrito.')) {
+                try {
+                    const response = await fetch('/cart/clear', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        throw new Error(data.message || 'Error al cancelar la compra');
+                    }
+
+                    alert('Compra cancelada exitosamente');
+                    window.location.href = '/catalogo'; // O la ruta que prefieras
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error al cancelar la compra: ' + error.message);
+                }
+            }
+        });
+        
+        document.getElementById('checkoutForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!validateForm()) {
+                return;
+            }
+            
+            try {
+                const button = document.getElementById('processPaymentBtn');
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+                const formData = {
+                    name: document.getElementById('name').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value,
+                    address: document.getElementById('address').value,
+                    city: document.getElementById('city').value
+                };
+
+                const response = await fetch('/process-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ shippingInfo: formData })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Error al procesar el pago');
+                }
+
+                alert('¡Pago procesado exitosamente!');
+                window.location.href = '/';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al procesar el pago: ' + error.message);
+                const button = document.getElementById('processPaymentBtn');
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-credit-card me-2"></i>Procesar Pago';
+            }
+        });
+
+        function validateForm() {
+            const requiredFields = ['phone', 'address', 'city'];
+            let isValid = true;
+
+            requiredFields.forEach(field => {
+                const input = document.getElementById(field);
+                if (!input.value.trim()) {
+                    input.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            });
+
+            if (!isValid) {
+                alert('Por favor, complete todos los campos obligatorios');
+            }
+
+            return isValid;
+        }
+
+        // Remover clase is-invalid al escribir
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('is-invalid');
+            });
+        });

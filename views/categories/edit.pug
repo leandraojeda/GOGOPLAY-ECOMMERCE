@@ -1,0 +1,19 @@
+extends ../layout 
+
+block content
+  h1 Editar Categoria
+  form(action=`/categories/${category.id}` method="POST" enctype="multipart/form-data")
+    .mb-3
+      label(for="name" class="form-label") Nombre
+      input#name.form-control(type="text" name="name" value=category.name required)
+    .mb-3
+      label(for="description" class="form-label") Descripción
+      input#description.form-control(type="text" name="description" value=category.description required)
+    .mb-3
+      label(for="image" class="form-label") Imagen
+      if category.image
+        img(src=category.image width="100" class="mb-2")
+      input#image.form-control(type="file" name="image")
+      input(type="hidden" name="oldImage" value=category.image)
+    .mb-3
+      button.btn.btn-primary(type="submit") Guardar

@@ -1,0 +1,50 @@
+extends layout
+
+block content
+    .container
+        .row.justify-content-center
+            .col-md-6.col-lg-4
+                .card.shadow.mt-5
+                    .card-body
+                        h2.text-center.mb-4 Iniciar Sesión
+                        
+                        //- Mostrar mensaje de error si existe
+                        if error
+                            .alert.alert-danger= error
+                        
+                        //- Formulario tradicional (usa POST)
+                        form(method="POST", action="/login")
+                            .mb-3
+                                label.form-label(for="username") Usuario
+                                input#username.form-control(
+                                    type="text",
+                                    name="username",
+                                    required=true,
+                                    placeholder="Ingresa tu usuario"
+                                )
+                            .mb-3
+                                label.form-label(for="password") Contraseña
+                                input#password.form-control(
+                                    type="password",
+                                    name="password",
+                                    required=true,
+                                    placeholder="Ingresa tu contraseña"
+                                )
+                            .d-grid.gap-2
+                                button.btn.btn-primary(type="submit") Iniciar Sesión
+
+                        //- Registro alternativo
+                        .text-center.mt-4
+                            hr.my-4
+                            p.text-muted ¿No tienes una cuenta?
+                            a.btn.btn-outline-primary(href="/users/create") 
+                                i.bi.bi-person-plus.me-2
+                                | Registrarse
+
+block scripts
+    //- Si quieres guardar una ruta anterior con JS, puedes hacerlo aquí
+    script.
+        // Guarda la página anterior para redirección (solo si vienes de /cart)
+        if (document.referrer && document.referrer.includes('/cart')) {
+            localStorage.setItem('returnTo', '/cart');
+        }

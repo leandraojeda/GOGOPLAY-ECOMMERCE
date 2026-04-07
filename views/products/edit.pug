@@ -1,0 +1,70 @@
+extends ../layout
+
+block content
+  .container.mt-4
+    h1.mb-4 Editar Producto
+
+    if errors && errors.length > 0
+      .alert.alert-danger
+        each error in errors
+          p.mb-0= error
+
+    form(action=`/products/${product.id}` method="POST" enctype="multipart/form-data")
+      .row
+        .col-md-6
+          .mb-3
+            label.form-label(for="code") Código
+            input#code.form-control(type="text" name="code" value=product.code required)
+
+          .mb-3
+            label.form-label(for="name") Nombre
+            input#name.form-control(type="text" name="name" value=product.name required)
+
+          .mb-3
+            label.form-label(for="price") Precio
+            input#price.form-control(type="number" name="price" step="0.01" value=product.price required)
+
+          .mb-3
+            label.form-label(for="stock") Stock
+            input#stock.form-control(type="number" name="stock" value=product.stock required)
+
+          .mb-3
+            label.form-label(for="description") Descripción
+            textarea#description.form-control(name="description" rows="3")= product.description
+
+          .mb-3
+            label.form-label(for="categoryId") Categoría
+            select#categoryId.form-control(name="categoryId" required)
+              option(value="") Seleccione una categoría
+              if categories && categories.length > 0
+                each category in categories
+                  option(
+                    value=category.id
+                    selected=category.id == product.categoryId
+                  )= category.name
+
+        .col-md-6
+          .mb-3
+            label.form-label(for="thumbnail") Imagen Principal
+            if product.thumbnail
+              img.mb-2.d-block(src=product.thumbnail width="100")
+            input#thumbnail.form-control(type="file" name="thumbnail")
+            input(type="hidden" name="oldThumbnail" value=product.thumbnail)
+
+          .mb-3
+            label.form-label(for="image1") Imagen Adicional 1
+            if product.image1
+              img.mb-2.d-block(src=product.image1 width="100")
+            input#image1.form-control(type="file" name="image1")
+            input(type="hidden" name="oldImage1" value=product.image1)
+
+          .mb-3
+            label.form-label(for="image2") Imagen Adicional 2
+            if product.image2
+              img.mb-2.d-block(src=product.image2 width="100")
+            input#image2.form-control(type="file" name="image2")
+            input(type="hidden" name="oldImage2" value=product.image2)
+
+      .d-flex.gap-2.mt-4
+        button.btn.btn-primary(type="submit") Guardar Cambios
+        a.btn.btn-secondary(href="/products") Cancelar

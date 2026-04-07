@@ -1,0 +1,20 @@
+//- views/categories/show.pug
+extends ../layout 
+
+block content
+  h1 Detalles de la Categorías
+
+  .card
+    .card-body
+      h5.card-title #{category.name}
+      p.card-text Descripción: #{category.description}
+      p.card-text Archivo: #{category.image}
+      if category.image
+        img(src=category.image width="100" class="my-2")
+      p.card-text Última actualización: #{category.updatedAt}
+      
+      .mt-3
+        a(href=`/categories/${category.id}/edit` class="btn btn-warning me-2") Editar
+        form(action=`/categories/${category.id}/delete` method="POST" class="d-inline")
+          button(type="submit" class="btn btn-danger") Eliminar
+        a(href="/categories" class="btn btn-secondary ms-2") Volver a la lista

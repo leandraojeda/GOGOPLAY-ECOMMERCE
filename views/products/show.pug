@@ -1,0 +1,46 @@
+//- views/products/show.pug
+extends ../layout 
+
+block content
+  h1 Detalles del Productoooooooooooooooo
+
+  .card
+    .card-body
+      h5.card-title #{product.name}
+      h6.card-subtitle.mb-2.text-muted Código: #{product.code}
+      
+      .row.mb-3
+        .col-md-4
+          if product.thumbnail
+            img.img-fluid(src=product.thumbnail alt="Imagen principal")
+        .col-md-4
+          if product.image1
+            img.img-fluid(src=product.image1 alt="Imagen 1")
+        .col-md-4
+          if product.image2
+            img.img-fluid(src=product.image2 alt="Imagen 2")
+      
+      p.card-text
+        strong Precio: 
+        span $#{product.price}
+      
+      p.card-text
+        strong Stock: 
+        span #{product.stock}
+      
+      p.card-text
+        strong Descripción: 
+        span #{product.description}
+      
+      p.card-text
+        strong Categoría: 
+        span #{category ? category.name : 'No asignada'}
+      
+      p.card-text
+        small.text-muted Última actualización: #{product.updatedAt}
+      
+      .mt-3
+        a.btn.btn-warning.me-2(href=`/products/${product.id}/edit`) Editar
+        form.d-inline(action=`/products/${product.id}/delete` method="POST" onsubmit="return confirm('¿Estás seguro de eliminar este producto?')")
+          button.btn.btn-danger(type="submit") Eliminar
+        a.btn.btn-secondary.ms-2(href="/products") Volver

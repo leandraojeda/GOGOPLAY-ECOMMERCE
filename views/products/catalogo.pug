@@ -1,0 +1,104 @@
+extends ../layout
+
+block content
+    .container
+        h1.mb-4= title || 'Catálogo de Productos'
+        
+        .row
+            // Filtros laterales
+            .col-md-3.mb-4
+                .card
+                    .card-body
+                        h5.card-title CategoríaS
+                        .list-group.mt-2
+                            a.list-group-item(
+                                href='/catalogo'
+                                class=!category ? 'active' : ''
+                            ) Todas
+                            each cat in categories
+                                a.list-group-item(
+                                    href=`/category/${cat.id}/products`
+                                    class=category && category.id === cat.id ? 'active' : ''
+                                )= cat.name
+
+            // Lista de productos
+            .col-md-9
+                if products && products.length > 0
+                    .row.row-cols-1.row-cols-md-3.g-4
+                        each product in products
+                            .col
+                                .card.h-100
+                                    if product.thumbnail
+                                        img.card-img-top(
+                                            src=product.thumbnail
+                                            alt=product.name
+                                            style="height: 200px; object-fit: cover;"
+                                        )
+                                    else
+                                        img.card-img-top(
+                                            src='/uploads/default-product.jpg'
+                                            alt=product.name
+                                            style="height: 200px; object-fit: cover;"
+                                        )
+                                    .card-body
+                                        h5.card-title= product.name
+                                        p.card-text.text-truncate= product.description
+                                        p.h5.mb-2 $#{Number(product.price).toFixed(2)}
+                                        if product.stock > 0
+                                            form.add-to-cart-form(onsubmit="return addToCart(event, " + product.id + ")")
+                                                input(type="hidden" name="productId" value=product.id)
+                                                input(type="hidden" name="quantity" value="1")
+                                                button.btn.btn-primary.w-100.mb-2(type="submit")
+                                                    i.bi.bi-cart-plus.me-2
+                                                    | Agregar al Carrito
+                                            span.badge.bg-success.d-block Stock: #{product.stock}
+                                        else
+                                            span.badge.bg-danger.d-block Agotado
+                                        
+                                        a.btn.btn-outline-secondary.w-100.mt-2(href=`/product/${product.id}`)
+                                            i.bi.bi-eye.me-2
+                                            | Ver Detalles
+                else
+                    .alert.alert-info.text-center
+                        h4.alert-heading No se encontraron productos
+                        if searchTerm
+                            p No hay productos que coincidan con tu búsqueda
+                        else if category
+                            p No hay productos en esta categoría
+                        else
+                            p No hay productos disponibles
+                        a.btn.btn-primary.mt-3(href='/catalogo') Ver todo el catálogo
+
+block scripts
+    script.
+        function addToCart(event, productId) {
+            event.preventDefault();
+            
+            fetch('/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    productId: productId,
+                    quantity: 1
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar alerta de éxito
+                    alert('¡Producto agregado al carrito!');
+                    // Recargar la página para actualizar el contador del carrito
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error al agregar al carrito');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al agregar al carrito');
+            });
+            
+            return false;
+        }

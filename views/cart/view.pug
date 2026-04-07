@@ -1,0 +1,171 @@
+extends ../layout
+
+block content
+    .container
+        h1.mb-4 Carrito de Compras
+        
+        if items && items.length > 0
+            .card.mb-4
+                .card-body
+                    table.table
+                        thead
+                            tr
+                                th Producto
+                                th Precio Unitario
+                                th Cantidad
+                                th Subtotal
+                                th Acciones
+                        tbody
+                            each item in items
+                                tr(data-item-id=item.id)
+                                    td
+                                        .d-flex.align-items-center
+                                            if item.thumbnail
+                                                img.me-3(src=item.thumbnail alt=item.name style="width: 50px; height: 50px; object-fit: cover;")
+                                            span= item.name
+                                    td $#{Number(item.price).toFixed(2)}
+                                    td
+                                        .input-group.w-auto
+                                            button.btn.btn-outline-secondary.btn-sm.decrement-quantity(type="button") -
+                                            input.form-control.form-control-sm.quantity-input(
+                                                type="number"
+                                                value=item.quantity
+                                                min="1"
+                                                style="width: 60px"
+                                            )
+                                            button.btn.btn-outline-secondary.btn-sm.increment-quantity(type="button") +
+                                    td $#{Number(item.totalPrice).toFixed(2)}
+                                    td
+                                        button.btn.btn-danger.btn-sm.remove-item(type="button")
+                                            i.bi.bi-trash
+            
+            .card.mb-4
+                .card-body
+                    .row
+                        .col-md-6
+                            button.btn.btn-outline-danger.clear-cart(type="button") Vaciar Carrito
+                        .col-md-6.text-end
+                            h5.mb-0 Total: $#{Number(total || 0).toFixed(2)}
+            
+            .d-grid.gap-2
+                button.btn.btn-primary.btn-lg.checkout-button(type="button") Proceder al Pago
+        else
+            .alert.alert-info.text-center
+                h4.alert-heading Tu carrito está vacío
+                p.mb-0 
+                    | No hay productos en tu carrito. 
+                    a(href="/catalogo") Ir al catálogo
+
+block scripts
+    script.
+        // Funciones para el carrito
+        document.querySelectorAll('.increment-quantity').forEach(button => {
+            button.addEventListener('click', function() {
+                const input = this.parentElement.querySelector('.quantity-input');
+                updateQuantity(input.parentElement.parentElement.parentElement.dataset.itemId, parseInt(input.value) + 1);
+            });
+        });
+
+        document.querySelectorAll('.decrement-quantity').forEach(button => {
+            button.addEventListener('click', function() {
+                const input = this.parentElement.querySelector('.quantity-input');
+                if (parseInt(input.value) > 1) {
+                    updateQuantity(input.parentElement.parentElement.parentElement.dataset.itemId, parseInt(input.value) - 1);
+                }
+            });
+        });
+
+        document.querySelectorAll('.remove-item').forEach(button => {
+            button.addEventListener('click', function() {
+                const itemId = this.closest('tr').dataset.itemId;
+                if (confirm('¿Estás seguro de eliminar este producto del carrito?')) {
+                    removeItem(itemId);
+                }
+            });
+        });
+
+        document.querySelector('.clear-cart')?.addEventListener('click', function() {
+            if (confirm('¿Estás seguro de vaciar el carrito?')) {
+                clearCart();
+            }
+        });
+
+        document.querySelector('.checkout-button')?.addEventListener('click', handleCheckout);
+        async function handleCheckout() {
+            try {
+                const response = await fetch('/api/check-auth', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.setItem('returnTo', '/cart');
+                        alert('Por favor, inicia sesión para continuar con la compra');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    throw new Error(data.message || 'Error al verificar autenticación');
+                }
+
+                // Si está autenticado, redirigir al checkout
+                window.location.href = '/checkout';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+
+        function updateQuantity(itemId, quantity) {
+            fetch('/cart/update-quantity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemId, quantity })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert(data.message || 'Error al actualizar cantidad');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al actualizar cantidad');
+            });
+        }
+
+        function removeItem(itemId) {
+            fetch(`/cart/remove/${itemId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert(data.message || 'Error al eliminar producto');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al eliminar producto');
+            });
+        }
+
+        function clearCart() {
+            fetch('/cart/clear', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert(data.message || 'Error al vaciar carrito');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al vaciar carrito');
+            });
+        }

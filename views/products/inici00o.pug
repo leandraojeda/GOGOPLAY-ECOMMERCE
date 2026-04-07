@@ -1,0 +1,69 @@
+doctype html
+html
+  head
+    title Catálogo de Productos mundooooo
+    link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css")
+    style.
+      .product-card {
+        transition: transform 0.3s;
+        height: 100%;
+      }
+      .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      }
+      .product-image {
+        height: 200px;
+        object-fit: cover;
+      }
+      .product-price {
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+      .admin-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: none;
+      }
+      .product-card:hover .admin-controls {
+        display: block;
+      }
+
+  body
+    nav.navbar.navbar-expand-lg.navbar-light.bg-light
+      .container-fluid
+        a.navbar-brand(href='/products') Mi Tienda
+        button.navbar-toggler(type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav")
+          span.navbar-toggler-icon
+        #navbarNav.collapse.navbar-collapse
+          ul.navbar-nav
+            li.nav-item
+              a.nav-link(href='/products/create') Nuevo Producto
+
+    .container.mt-4
+      h1.mb-4.text-center Catálogo de Productos
+      
+      .row.row-cols-1.row-cols-md-2.row-cols-lg-3.g-4
+        each product in products
+          .col
+            .card.product-card
+              .admin-controls
+                a.btn.btn-sm.btn-primary.me-2(href=`/products/${product.id}/edit`) 
+                  i.bi.bi-pencil
+                form.d-inline(action=`/products/${product.id}/delete`, method="POST")
+                  button.btn.btn-sm.btn-danger(type="submit")
+                    i.bi.bi-trash
+              
+              a(href=`/products/${product.id}` style="text-decoration: none; color: inherit;")
+                img.card-img-top.product-image(src=product.image || 'https://via.placeholder.com/300x200', alt=product.name)
+                .card-body
+                  h5.card-title= product.name
+                  p.product-price $#{product.price.toFixed(2)}
+                  if product.stock > 0
+                    span.badge.bg-success Stock: #{product.stock}
+                  else
+                    span.badge.bg-danger Agotado
+                  
+    script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js")

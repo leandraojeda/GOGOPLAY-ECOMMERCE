@@ -1,0 +1,53 @@
+body {
+    background-color: #f8f9fa;
+}
+.container{
+    padding-top: 100px;
+}
+
+.product-image {
+    max-height: 400px;
+    width: auto;
+    object-fit: contain;
+    transition: transform 0.2s ease-in-out;
+}
+
+.product-image:hover {
+    transform: scale(1.2);
+}
+
+.carousel-item img {
+    max-height: 400px;
+    width: auto;
+    object-fit: contain;
+}
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    filter: invert(1);
+}
+
+.thumbnails {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.thumbnails img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s, border-color 0.3s;
+}
+
+.thumbnails img:hover {
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+}
+
+.thumbnails img.active {
+    border-color: #007bff;
+}

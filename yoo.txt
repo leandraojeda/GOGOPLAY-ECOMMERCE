@@ -1,0 +1,681 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const { UserController} = require('./controllers/UserController');
+const { CategoryController} = require('./controllers/CategoryController');
+const { ProductController } = require('./controllers/ProductController');
+const { CartController } = require('./controllers/CartController');
+const InicioController = require('./controllers/InicioController');
+const UserService = require('./services/UserService');
+const CategoryService = require('./services/CategoryService');
+const ProductService = require('./services/ProductService');
+const CartService = require('./services/CartService');
+const { CheckoutController } = require('./controllers/CheckoutController');
+const path = require('path');
+const upload = require('./config/uploadConfig');
+const app = express();
+const session = require('express-session');
+app.use(express.static('public'));
+const db = require('./models/User'); 
+
+
+// Configuraciones
+app.set('view engine', 'pug');
+app.set('views', path.join(__dirname, 'views'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(CartController.getCartItemCount);
+
+// Verificación de la carpeta uploads
+const fs = require('fs');
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads', { recursive: true });
+    console.log('Carpeta uploads creada exitosamente');
+} else {
+    console.log('La carpeta uploads ya existe');
+}
+
+// Añade esto después de tus importaciones
+const multerErrorHandler = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).render('error', {
+        message: 'Error al subir archivo',
+        error: err
+      });
+    }
+    next(err);
+  };
+
+// Middleware para manejar errores
+const errorHandler = (err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).render('error', { 
+        message: 'Algo salió mal!',
+        error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+};
+
+ // Rutas principales
+app.get('/', (req, res, next) => {
+    const inicioController = require('./controllers/InicioController');
+    inicioController.index(req, res);
+});
+/***************INICIOOOOO************** */
+
+
+app.get('/', async (req, res) => {
+    try {
+        // Obtener los productos
+        ProductService.getAllProducts((err, products) => {
+            if (err) {
+                console.error('Error:', err);
+                return res.status(500).send('Error al cargar los productos');
+            }
+
+            // Obtener las categorías
+            CategoryService.getAll((err, categories) => {
+                if (err) {
+                    console.error('Error:', err);
+                    return res.status(500).send('Error al cargar las categorías');
+                }
+
+                // Renderizar la vista con todos los datos necesarios
+                res.render('inicio/index', { 
+                    products: products,
+                    categories: categories,
+                    title: 'GoGo Play - Inicio',
+                    user: req.session.user || null // Pasar el usuario de la sesión
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send('Error al cargar la página');
+    }
+});
+
+// Ruta para el catálogo
+app.get('/catalogo', (req, res, next) => {
+    // Primero obtener las categorías
+    CategoryService.getAllCategories((catErr, categories) => {
+        if (catErr) {
+            console.error('Error al obtener categorías:', catErr);
+            return next(catErr);
+        }
+
+        // Luego obtener los productos
+        ProductService.getAllProducts((prodErr, products) => {
+            if (prodErr) {
+                console.error('Error al obtener productos:', prodErr);
+                return next(prodErr);
+            }
+
+            // Renderizar la vista con ambos datos
+            res.render('products/catalogo', {
+                title: 'Catálogo de Productos',
+                products: products || [],
+                categories: categories || [],
+                category: null,
+                searchTerm: null
+            });
+        });
+    });
+});
+
+
+// Rutas para usuarios
+app.get('/users', UserController.index);
+app.get('/users/create', UserController.create);
+app.post('/users', upload.single('imagen'), UserController.store);
+app.get('/users/:id', UserController.show);
+app.get('/users/:id/edit', UserController.edit);
+app.post('/users/:id', upload.single('imagen'), UserController.update);
+app.post('/users/:id/delete', UserController.delete);
+
+
+// Asegúrate de tener estos middleware configurados
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// Configuración de sesión
+app.use(session({
+    secret: 'tu_secreto_aqui',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    }
+}));
+
+// Middleware para hacer disponible el usuario en todas las vistas
+app.use((req, res, next) => {
+    res.locals.user = req.session.user || null;
+    res.locals.cartItemCount = 0; // Valor por defecto
+    next();
+});
+
+// Después de esto, aplica tu middleware getCartItemCount
+app.use(CartController.getCartItemCount);
+
+// Middleware para verificar autenticación
+const checkAuth = (req, res, next) => {
+    if (req.session && req.session.user) {
+        return next();
+    }
+    // Guardar la URL original para redireccionar después del login
+    req.session.returnTo = req.originalUrl;
+    res.redirect('/login');
+};
+
+
+// Ruta para verificar autenticación
+app.get('/api/check-auth', (req, res) => {
+    if (req.session && req.session.user) {
+        return res.json({
+            success: true,
+            user: req.session.user
+        });
+    }
+    return res.status(401).json({
+        success: false,
+        message: 'No has iniciado sesión'
+    });
+});
+
+
+// Middleware para cargar categorías
+app.use(async (req, res, next) => {
+    try {
+        // Pasar un array vacío por defecto si no hay categorías
+        res.locals.categories = [];
+        next();
+    } catch (error) {
+        console.error('Error al cargar categorías:', error);
+        next();
+    }
+});
+// Ruta de login
+app.get('/login', (req, res) => {
+    res.render('login', {
+        title: 'Iniciar Sesión'
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    UserService.validateUser(username, password, (err, user) => {
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: 'Error en el servidor'
+            });
+        }
+        if (user) {
+            // Guardar usuario en sesión
+            req.session.user = {
+                id: user.id,
+                username: user.username,
+                imagen: user.imagen, // Asegúrate de incluir la imagen si existe
+                name: user.name
+            };
+            
+            return res.json({
+                success: true,
+                message: 'Login exitoso',
+                user: {
+                    id: user.id,
+                    username: user.username
+                }
+            });
+        } else {
+            
+            // Verificar si el usuario existe
+            db.get('SELECT id FROM users WHERE username = ?', [username], (err, existingUser) => {
+                if (err) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Error en el servidor'
+                    });
+                }
+
+                if (!existingUser) {
+                    // Si el usuario no existe, sugerir registro
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Usuario no encontrado. ¿Deseas registrarte?',
+                        needsRegistration: true
+                    });
+                } else {
+                    // Si el usuario existe pero la contraseña es incorrecta
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Credenciales inválidas'
+                    });
+                }
+            });
+        }
+    });
+});
+
+
+
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error al cerrar sesión:', err);
+            return res.status(500).render('error', {
+                message: 'Error al cerrar sesión'
+            });
+        }
+        res.redirect('/');
+    });
+});
+
+
+// Añade estas rutas en tu app.js
+
+// Función para obtener datos disponibles del usuario
+function getUserData(userId, callback) {
+    db.get(
+        `SELECT id, name, email 
+         FROM users 
+         WHERE id = ?`,
+        [userId],
+        callback
+    );
+}
+
+
+// Ruta para mostrar la página de checkout
+app.get('/checkout', checkAuth, (req, res) => {
+    const userId = req.session.user.id;
+
+    // Usar CartService para obtener el carrito
+    CartService.getOrCreateCart(userId, (err, cart) => {
+        if (err) {
+            console.error('Error al obtener el carrito:', err);
+            return res.status(500).render('error', {
+                message: 'Error al cargar el checkout'
+            });
+        }
+        //console.log('Carrito obtenido:', cart); 
+        // Obtener contenidos del carrito
+        CartService.getCartContents(cart.id, (err, items) => {
+            if (err) {
+                console.error('Error al obtener items del carrito:', err);
+                return res.status(500).render('error', {
+                    message: 'Error al cargar los items del carrito'
+                });
+            }
+            //console.log('Items del carrito:', items);
+            if (!items || items.length === 0) {
+                return res.redirect('/cart');
+            }
+
+            // Obtener el total del carrito
+            CartService.getCartTotal(cart.id, (err, total) => {
+                if (err) {
+                    console.error('Error al calcular el total:', err);
+                    return res.status(500).render('error', {
+                        message: 'Error al calcular el total'
+                    });
+                }
+                
+                // Obtener el usuario de la base de datos
+                db.get(
+                    'SELECT name, email FROM users WHERE id = ?',
+                    [userId],
+                    (err, user) => {
+                        if (err) {
+                            console.error('Error al obtener datos del usuario:', err);
+                            return res.status(500).render('error', {
+                                message: 'Error al cargar datos del usuario'
+                            });
+                        }
+
+                        res.render('checkout', {
+                            title: 'Finalizar Compra',
+                            items: items,
+                            total: total ? total.total : 0,
+                            user: user || {}, // Pasar datos del usuario o un objeto vacío
+                            cartId: cart.id
+                        });
+                });
+            });
+        });
+    });
+});
+
+// Ruta para procesar el pago
+app.post('/process-payment', checkAuth, async (req, res) => {
+    try {
+        const { shippingInfo } = req.body;
+        const userId = req.session.user.id;
+
+        // Obtener el carrito actual
+        const cart = await Cart.findOne({ userId })
+            .populate('items.productId');
+
+        if (!cart || cart.items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Carrito vacío'
+            });
+        }
+
+        // Crear la orden
+        const order = new Order({
+            userId,
+            items: cart.items,
+            total: cart.items.reduce((sum, item) => 
+                sum + (item.quantity * item.productId.price), 0),
+            shippingInfo,
+            status: 'pending'
+        });
+
+        await order.save();
+
+        // Limpiar el carrito
+        await Cart.findOneAndUpdate(
+            { userId },
+            { $set: { items: [] } }
+        );
+
+        res.json({
+            success: true,
+            message: 'Pago procesado exitosamente',
+            orderId: order._id
+        });
+
+    } catch (error) {
+        console.error('Error al procesar el pago:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al procesar el pago'
+        });
+    }
+});
+
+// Ruta para la confirmación de la orden
+app.get('/order-confirmation/:orderId', checkAuth, async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.orderId)
+            .populate('items.productId');
+
+        if (!order) {
+            return res.status(404).send('Orden no encontrada');
+        }
+
+        res.render('order-confirmation', {
+            order,
+            user: req.session.user
+        });
+
+    } catch (error) {
+        console.error('Error al cargar la confirmación:', error);
+        res.status(500).send('Error al cargar la confirmación de la orden');
+    }
+});
+
+
+// Rutas para categorías
+app.get('/categories', CategoryController.index);
+app.get('/categories/create', CategoryController.create);
+app.post('/categories', upload.single('image'), CategoryController.store);
+app.get('/categories/:id', CategoryController.show);
+app.get('/categories/:id/edit', CategoryController.edit);
+app.post('/categories/:id', upload.single('image'),CategoryController.update);
+app.post('/categories/:id/delete', CategoryController.delete);
+
+// Rutas de productos
+app.get('/products', ProductController.index);
+app.get('/products/create', ProductController.create);
+app.post('/products', upload.fields([{ name: 'thumbnail', maxCount: 1 },{ name: 'image1', maxCount: 1 },{ name: 'image2', maxCount: 1 }]), ProductController.store);
+app.get('/products/:id', ProductController.show);
+app.get('/products/:id/edit', ProductController.edit);
+app.post('/products/:id', upload.fields([{ name: 'thumbnail', maxCount: 1 },{ name: 'image1', maxCount: 1 },{ name: 'image2', maxCount: 1 }]),ProductController.update);
+app.post('/products/:id/delete', ProductController.delete);
+
+// Rutas del carrito
+app.get('/cart', CartController.viewCart);
+app.post('/cart/add', CartController.addToCart);
+app.post('/cart/update-quantity', CartController.updateQuantity);
+app.post('/cart/remove/:itemId', CartController.removeItem);
+app.post('/cart/clear', CartController.clearCart);
+
+// Rutas de checkout (protegidas por autenticación)
+app.get('/checkout', checkAuth, CheckoutController.viewCheckout);
+app.post('/process-payment', checkAuth, CheckoutController.processPayment);
+app.get('/order-confirmation/:orderId', checkAuth, CheckoutController.viewOrderConfirmation);
+
+// Ruta para ver detalle de producto
+app.get('/product/:id', (req, res, next) => {
+    const productId = req.params.id;
+    
+    // Obtener el producto con su información de categoría
+    ProductService.getProductById(productId, (err, product) => {
+        if (err) {
+            console.error('Error al obtener producto:', err);
+            return next(err);
+        }
+        
+        if (!product) {
+            return res.status(404).render('error', { 
+                message: 'Producto no encontrado' 
+            });
+        }
+
+        // Obtener productos relacionados de la misma categoría
+        if (product.categoryId) {
+            ProductService.getProductsByCategory(product.categoryId, (err, relatedProducts) => {
+                const filteredRelated = relatedProducts 
+                    ? relatedProducts.filter(p => p.id !== product.id).slice(0, 4)
+                    : [];
+
+                res.render('products/detalle', {
+                    product: product,
+                    relatedProducts: filteredRelated
+                });
+            });
+        } else {
+            res.render('products/detalle', {
+                product: product,
+                relatedProducts: []
+            });
+        }
+    });
+});
+
+
+
+// Ruta para categorías específicas
+app.get('/category/:id/products', (req, res, next) => {
+    const categoryId = req.params.id;
+    
+    // Obtener todas las categorías primero
+    CategoryService.getAllCategories((catErr, categories) => {
+        if (catErr) {
+            console.error('Error al obtener categorías:', catErr);
+            return next(catErr);
+        }
+
+        // Obtener la categoría específica
+        CategoryService.getCategoryById(categoryId, (err, category) => {
+            if (err) {
+                console.error('Error al obtener categoría:', err);
+                return next(err);
+            }
+
+            if (!category) {
+                return res.status(404).render('error', {
+                    message: 'Categoría no encontrada'
+                });
+            }
+
+            // Obtener los productos de la categoría
+            ProductService.getProductsByCategory(categoryId, (prodErr, products) => {
+                if (prodErr) {
+                    console.error('Error al obtener productos:', prodErr);
+                    return next(prodErr);
+                }
+
+                res.render('products/catalogo', {
+                    title: `Productos en ${category.name}`,
+                    category: category,
+                    categories: categories || [],
+                    products: products || [],
+                    searchTerm: null
+                });
+            });
+        });
+    });
+});
+
+
+
+// Ruta de búsqueda
+app.get('/search', (req, res, next) => {
+    const searchTerm = req.query.q || '';
+    
+    CategoryService.getAllCategories((catErr, categories) => {
+        if (catErr) {
+            console.error('Error al obtener categorías:', catErr);
+            return next(catErr);
+        }
+
+        ProductService.searchProducts(searchTerm, (prodErr, products) => {
+            if (prodErr) {
+                console.error('Error al buscar productos:', prodErr);
+                return next(prodErr);
+            }
+
+            res.render('products/catalogo', {
+                title: `Búsqueda: ${searchTerm}`,
+                categories: categories || [],
+                products: products || [],
+                searchTerm: searchTerm,
+                category: null
+            });
+        });
+    });
+});
+// API endpoints para operaciones AJAX
+app.get('/api/products', async (req, res) => {
+    try {
+        const products = await ProductService.getAllProducts();
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/products/category/:id', async (req, res) => {
+    try {
+        const products = await ProductService.getProductsByCategory(req.params.id);
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/products/search', async (req, res) => {
+    try {
+        const products = await ProductService.searchProducts(req.query.q);
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// En app.js para obtener todas las categorias
+app.get('/api/categories', async (req, res) => {
+    try {
+      const categories = await CategoryService.getAllCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+// Ruta de inicio
+app.get('/inicio', InicioController.index);
+
+// Manejo de errores
+app.use(errorHandler);
+
+// Manejo de rutas no encontradas
+app.use((req, res) => {
+    res.status(404).render('error', { 
+        message: 'Página no encontrada' 
+    });
+});
+
+
+
+
+/************MOSTRAR PRODUCTO A DETALLE************* */
+// Añade esto en tu app.js
+// Actualiza o agrega esta ruta en tu app.js
+app.get('/product/:id', (req, res) => {
+  ProductService.getProductById(req.params.id, (err, product) => {
+      if (err) {
+          console.error('Error:', err);
+          return res.render('error', { 
+              message: 'Error al cargar el producto',
+              error: err
+          });
+      }
+      
+      if (!product) {
+          return res.render('error', { 
+              message: 'Producto no encontrado'
+          });
+      }
+
+      // Si el producto existe, cargar productos relacionados
+      if (product.categoryId) {
+          ProductService.getProductsByCategory(product.categoryId, (err, relatedProducts) => {
+              if (err) {
+                  // Si hay error en productos relacionados, mostrar solo el producto principal
+                  return res.render('products/detalle', { product });
+              }
+              
+              // Filtrar el producto actual y limitar a 4 productos relacionados
+              const filteredRelated = relatedProducts
+                  .filter(p => p.id !== product.id)
+                  .slice(0, 4);
+              
+              res.render('products/detalle', { 
+                  product,
+                  relatedProducts: filteredRelated
+              });
+          });
+      } else {
+          // Si no hay categoría, mostrar solo el producto
+          res.render('products/detalle', { product });
+      }
+  });
+});
+
+
+// Middleware para manejar errores 404 (rutas no encontradas)
+app.use((req, res, next) => {
+  res.status(404).render('error', { message: 'Página no encontrada' });
+});  
+  app.use(multerErrorHandler);
+
+// Middleware para manejar otros errores
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).render('error', { 
+      message: 'Algo salió mal',
+      error: process.env.NODE_ENV === 'development' ? err : {}
+  });
+});
+const PORT = process.env.PORT || 3100;
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});

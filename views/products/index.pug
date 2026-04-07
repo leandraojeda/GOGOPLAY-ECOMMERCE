@@ -1,0 +1,33 @@
+//- views/products/index.pug
+extends ../layout
+
+block content
+    .container
+        h1 Lista de Productos
+        a.btn.btn-primary(href="/products/create") Nuevo Producto
+
+        if products.length
+            table.table.table-striped
+                thead
+                    tr
+                        th ID
+                        th Nombre
+                        th Precio
+                        th Imagen
+                        th Acciones
+                tbody
+                    each product in products
+                        tr
+                            td= product.id
+                            td= product.name
+                            td $#{product.price.toFixed(2)}
+                            td
+                                if product.thumbnail
+                                    img(src=product.thumbnail, width="50")
+                            td
+                                a.btn.btn-info(href=`/products/${product.id}`) Ver
+                                a.btn.btn-warning(href=`/products/${product.id}/edit`) Editar
+                                form(method="POST", action=`/products/${product.id}/delete`, style="display:inline")
+                                    button.btn.btn-danger(type="submit") Eliminar
+        else
+            p No hay productos registrados.
